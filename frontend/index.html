@@ -51,7 +51,7 @@
       formData.append("file", file);
 
       // Send to backend
-      fetch("http://backend-service:8000/predict", {
+      fetch("http://http://127.0.0.1:53567/predict", {
         method: "POST",
         body: formData
       })
