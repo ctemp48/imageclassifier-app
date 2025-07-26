@@ -13,6 +13,8 @@ jobs:
     # --- 1. Checkout the repo ---
     - name: Checkout source code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
 
     # --- 2. Detect which folders changed ---
     - name: Detect changes
@@ -73,22 +75,23 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: ctemp48/imageclassifier-k8s
-        path: k8s
+        path: k8s-repo
         token: ${{ secrets.GH_PAT }}
+        fetch-depth: 2
 
     # --- 7. Update manifests only for changed services ---
     - name: Update manifests with new image tags
       run: |
-        cd k8s
+        cd k8s-repo
 
         if [ "${{ env.frontend_changed }}" == "true" ]; then
           echo "Updating frontend manifest..."
-          yq e -i '.spec.template.spec.containers[] |= select(.name == "frontend").image = "${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}"' frontend-deployment.yaml
+          yq e -i '.spec.template.spec.containers[] |= select(.name == "frontend").image = "${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}"' k8s/frontend-deployment.yaml
         fi
 
         if [ "${{ env.backend_changed }}" == "true" ]; then
           echo "Updating backend manifest..."
-          yq e -i '.spec.template.spec.containers[] |= select(.name == "backend").image = "${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.sha }}"' backend-deployment.yaml
+          yq e -i '.spec.template.spec.containers[] |= select(.name == "backend").image = "${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.sha }}"' k8s/backend-deployment.yaml
         fi
 
     # --- 8. Commit and push changes ---
