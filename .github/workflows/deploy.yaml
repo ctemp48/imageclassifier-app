@@ -1,0 +1,97 @@
+name: Build and Deploy Docker Images
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # --- 1. Checkout the repo ---
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    # --- 2. Detect which folders changed ---
+    - name: Detect changes
+      id: changes
+      run: |
+        echo "frontend_changed=false" >> $GITHUB_ENV
+        echo "backend_changed=false" >> $GITHUB_ENV
+
+        git fetch origin main
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+
+        if echo "$CHANGED_FILES" | grep -q '^frontend/'; then
+          echo "frontend_changed=true" >> $GITHUB_ENV
+        fi
+        if echo "$CHANGED_FILES" | grep -q '^backend/'; then
+          echo "backend_changed=true" >> $GITHUB_ENV
+        fi
+
+    # --- 3. Docker login ---
+    - name: Log in to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    # --- 4. Build and push frontend if changed ---
+    - name: Build and push frontend image
+      if: env.frontend_changed == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}
+
+    # --- 5. Build and push backend if changed ---
+    - name: Build and push backend image
+      if: env.backend_changed == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.sha }}
+
+    # --- 6. Checkout the GitOps repo ---
+    - name: Checkout GitOps repo
+      uses: actions/checkout@v4
+      with:
+        repository: your-username/imageclassifier-k8s
+        path: k8s
+        token: ${{ secrets.GH_PAT }}
+
+    # --- 7. Update manifests only for changed services ---
+    - name: Update manifests with new image tags
+      run: |
+        cd k8s
+
+        if [ "${{ env.frontend_changed }}" == "true" ]; then
+          echo "Updating frontend manifest..."
+          yq e -i '.spec.template.spec.containers[] |= select(.name == "frontend").image = "${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}"' frontend-deployment.yaml
+        fi
+
+        if [ "${{ env.backend_changed }}" == "true" ]; then
+          echo "Updating backend manifest..."
+          yq e -i '.spec.template.spec.containers[] |= select(.name == "backend").image = "${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.sha }}"' backend-deployment.yaml
+        fi
+
+    # --- 8. Commit and push changes ---
+    - name: Commit and push manifest updates
+      run: |
+        cd k8s-repo
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add .
+        if git diff --cached --quiet; then
+          echo "No manifest changes to commit."
+        else
+          git commit -m "Update manifests for changed services (${{ github.sha }})"
+          git push
+        fi

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Classifier</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 2rem auto;
+      text-align: center;
+    }
+    img {
+      max-width: 100%;
+      margin-top: 1rem;
+    }
+    #result {
+      font-size: 1.2rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>Image Classifier</h2>
+  <input type="file" id="imageInput" accept="image/*"><br><br>
+  <button onclick="sendImage()">Send</button>
+
+  <div id="previewContainer"></div>
+  <div id="result"></div>
+
+  <script>
+    function sendImage() {
+      const input = document.getElementById("imageInput");
+      const file = input.files[0];
+      const resultDiv = document.getElementById("result");
+      const previewDiv = document.getElementById("previewContainer");
+
+      if (!file) {
+        alert("Please select an image first.");
+        return;
+      }
+
+      // Show preview
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(file);
+      previewDiv.innerHTML = "";
+      previewDiv.appendChild(img);
+
+      // Prepare form data
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Send to backend
+      fetch("http://backend-service:8000/predict", {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        resultDiv.innerText = `Prediction: ${data.prediction}`;
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        resultDiv.innerText = "Error making prediction.";
+      });
+    }
+  </script>
+</body>
+</html>
+
+<!-- Example response from the backend 
+ {
+    "prediction": "Cat"
+  }
+-->
