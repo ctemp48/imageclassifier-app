@@ -21,17 +21,26 @@ jobs:
         echo "frontend_changed=false" >> $GITHUB_ENV
         echo "backend_changed=false" >> $GITHUB_ENV
 
-        git fetch origin main
-        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+        # Count commits
+        COMMIT_COUNT=$(git rev-list --count HEAD)
 
-        echo "Changed files:"
-        echo "$CHANGED_FILES"
-
-        if echo "$CHANGED_FILES" | grep -q '^frontend/'; then
+        if [ "$COMMIT_COUNT" -eq 1 ]; then
+          echo "First commit detected, marking both services as changed"
           echo "frontend_changed=true" >> $GITHUB_ENV
-        fi
-        if echo "$CHANGED_FILES" | grep -q '^backend/'; then
           echo "backend_changed=true" >> $GITHUB_ENV
+        else
+          git fetch origin main
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -q '^frontend/'; then
+            echo "frontend_changed=true" >> $GITHUB_ENV
+          fi
+          if echo "$CHANGED_FILES" | grep -q '^backend/'; then
+            echo "backend_changed=true" >> $GITHUB_ENV
+          fi
         fi
 
     # --- 3. Docker login ---
