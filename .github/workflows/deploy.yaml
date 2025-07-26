@@ -72,7 +72,7 @@ jobs:
     - name: Checkout GitOps repo
       uses: actions/checkout@v4
       with:
-        repository: your-username/imageclassifier-k8s
+        repository: ctemp48/imageclassifier-k8s
         path: k8s
         token: ${{ secrets.GH_PAT }}
 
